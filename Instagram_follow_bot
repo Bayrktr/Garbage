@@ -1,0 +1,278 @@
+Skip to content
+Search or jump to…
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@Bayrktr 
+Bayrktr
+/
+cv2
+Public
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security
+Insights
+Settings
+cv2/Instagram_follow_bot
+@Bayrktr
+Bayrktr Create Instagram_follow_bot
+Latest commit 80a4c10 on 25 Dec 2021
+ History
+ 1 contributor
+236 lines (209 sloc)  10.2 KB
+   
+from bs4 import BeautifulSoup
+from selenium.webdriver.common.by import By
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+import sqlite3 as sql
+from datetime import datetime
+import locale
+import json
+from urllib.request import urlopen
+import re, os
+
+
+def findlocale(operation):
+    myIP = re.compile(r'Address: (\d+\.\d+\.\d+\.\d+)').search(str(urlopen('http://checkip.dyndns.com/').read())).group(
+        1)
+
+    url = f'http://ipinfo.io/{myIP}/json'
+    response = urlopen(url)
+    data = json.load(response)
+
+    return data[operation]
+
+
+locale.setlocale(locale.LC_ALL, findlocale("country"))
+
+
+def time_setting(key):
+    date = datetime.now()
+
+    date_info = datetime.strftime(date, "%Y"), datetime.strftime(date, "%X"), datetime.strftime(date,
+                                                                                                "%A"), datetime.strftime(
+        date,
+        "%B"), datetime.strftime(
+        date, "%d")
+
+    timeInfo = {
+        "Year": date_info[0],
+        "Hour": date_info[1],
+        "Day": date_info[2],
+        "Month": date_info[4] + " " + date_info[3]
+    }
+
+    # date_msg_info = f"Month: {timeInfo['Month']} {timeInfo['Day']}\nH   our: {timeInfo['Hour']}\nYear: {timeInfo['Year']}"
+
+    return timeInfo[key]
+
+
+class bot:
+    def __init__(self):
+        self.a = -1
+        self.order = 0
+        self.y = 0
+        self.new_list = []
+        self.targetname_list = []
+        self.url = 'https://www.instagram.com/'
+        self.search = '//*[@id="react-root"]/section/nav/div[2]/div/div/div[2]/input'
+        self.run = True
+
+        # print(self.username,self.password,end="\n")
+
+    def select_user(self):
+        self.name = input("Username =  ")
+        self.password_1 = input("Password =  ")
+        while self.run == True:
+            self.targetname = input("Target Name =  ")
+            if self.targetname == "y":
+                self.run = False
+                self.driver = webdriver.Chrome(ChromeDriverManager().install())
+                p1.login()
+            else:
+                self.targetname_list.append(self.targetname)
+
+    def login(self):
+        time.sleep(3)
+        self.driver.get(self.url)
+        time.sleep(2)
+        name = self.driver.find_element(By.NAME, 'username').send_keys(f"{self.name}")
+        time.sleep(0.02)
+        passwrd = self.driver.find_element(By.NAME, 'password').send_keys(f"{self.password_1}")
+        time.sleep(1)
+        login = self.driver.find_element(By.XPATH, '//*[@id="loginForm"]/div/div[3]').click()
+        time.sleep(3)
+        p1.go_to()
+
+    def go_to(self):
+        time.sleep(3)
+        self.driver.find_element(By.XPATH, '//*[@id="react-root"]/section/main/div/div/div/div').click()
+        time.sleep(3)
+        self.driver.find_element(By.XPATH, '/html/body/div[5]/div/div/div/div[3]/button[2]').click()
+        time.sleep(3)
+        p1.go_to_user()
+
+    def go_to_user(self):
+        while self.a < len(self.targetname_list):
+            self.a += 1
+            if self.a == len(self.targetname_list):
+                self.a = 0
+            self.x = self.targetname_list[self.a]
+            self.driver.get(f"{self.url}" + str(self.x) + '/')
+            time.sleep(2)
+            print(self.x)
+            p1.take_content()
+
+    def take_content(self):
+        content = self.driver.page_source
+        soup = BeautifulSoup(content, "html.parser")
+        self.user_content = soup.find_all("span", attrs={"class": "g47SY"})
+        self.new_list = []
+        for x in self.user_content:
+            self.new_list.append(f'{x.text}')
+        p1.create_bank()
+
+    def create_bank(self):
+        with sql.connect('veribankam.sqlite') as vt:
+            im = vt.cursor()
+            im.execute(
+                f'CREATE TABLE if not exists {self.x}_content ("order INT","user","date","shipment","followers","follow_up")')
+            vt.commit()
+        p1.press_of_txt()
+
+    def press_of_txt(self):
+        self.y += 1
+        with open("{}.txt".format(self.x), "a+") as ds:
+            if os.path.exists(f"{self.x}.txt"):
+                print("TXT recording...")
+                self.veri = " | ".join(self.new_list)
+                hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[3:5], time_setting(
+                    "Day"), time_setting("Year"), time_setting("Month")
+                date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(month) + " "
+                self.veri = str(self.x) + " " + str(date) + " " +str(self.veri)
+                self.veri = "{} >>> {}".format(self.y, self.veri)
+                ds.write(f"{self.veri}\n")
+                print("successful")
+            else:
+                print("TXT file doesnt have!")
+        time.sleep(3)
+        p1.switch_wrng_shr()
+
+    def switch_wrng_shr(self):
+        a = 0
+        with sql.connect('veribankam.sqlite') as vt:
+            im = vt.cursor()
+            im.execute('select * from {}_content'.format(self.x))
+            data = im.fetchall()
+            self.veri_list = []
+            if len(data) != 0:
+                data = data[len(data) - 1]
+                for x in data[3:6:1]:
+                    self.veri_list.append(x)
+                """self.veri_list.append(data[3])
+                self.veri_list.append(data[4])
+                self.veri_list.append(data[5])
+                """
+            vt.commit()
+        print("New Content {}".format(self.new_list), end="\n")
+        print("Old Content {}".format(self.veri_list))
+        print()
+        if len(self.veri_list) == 0:
+            hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[3:5], time_setting(
+                "Day"), time_setting("Year"), time_setting("Month")
+            date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(month) + " "
+            with sql.connect("veribankam.sqlite") as vt:
+                im = vt.cursor()
+                im.execute("insert into {}_content values (?,?,?,?,?,?)".format(self.x),
+                           (0, self.x, date, self.new_list[0], self.new_list[1], self.new_list[2]))
+                vt.commit()
+            print("ilk veri girildi")
+        else:
+            while a < 3:
+                a += 1
+                if a == 1:
+                    if self.new_list[0] != self.veri_list[0]:
+                        with open("{}_switch_shipment.txt".format(self.x), "a+") as ds:
+                            if os.path.exists("{}_switch_shipment.txt".format(self.x)):
+                                print(f"CHANGE SHIPMENT {self.x}")
+                                hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[
+                                                                                       3:5], time_setting(
+                                    "Day"), time_setting("Year"), time_setting("Month")
+                                date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(
+                                    month) + " "
+                                if self.new_list[0] > self.veri_list[0]:
+                                    mesaj = " {}  SHIPMENT +".format(date)
+                                else:
+                                    mesaj = " {}  SHIPMENT -".format(date)
+                                ds.write(f"{mesaj}\n")
+                if a == 2:
+                    if self.new_list[1] != self.veri_list[1]:
+                        with open("{}_switch_followers.txt".format(self.x), "a+") as ds:
+                            if os.path.exists("{}_switch_shipment.txt".format(self.x)):
+                                print(f"CHANGE FOLLOWERS {self.x}")
+                                hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[
+                                                                                       3:5], time_setting(
+                                    "Day"), time_setting("Year"), time_setting("Month")
+                                date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(
+                                    month) + " "
+                                if self.new_list[1] > self.veri_list[1]:
+                                    mesaj = " {}  FOLLOWERS +".format(date)
+                                else:
+                                    mesaj = " {}  FOLLOWERS -".format(date)
+                                ds.write(f"{mesaj}\n")
+                if a == 3:
+                    if self.new_list[2] != self.veri_list[2]:
+                        with open("{}_switch_follow_up.txt".format(self.x), "a+") as ds:
+                            if os.path.exists("{}_switch_shipment.txt".format(self.x)):
+                                print(f"Change FOLLOW_UP {self.x}")
+                                hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[
+                                                                                       3:5], time_setting(
+                                    "Day"), time_setting("Year"), time_setting("Month")
+                                date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(
+                                    month) + " "
+                                if self.new_list[2] > self.veri_list[2]:
+                                    mesaj = " {}  FOLLOW_UP +".format(date)
+                                else:
+                                    mesaj = " {}  FOLLOW_UP -".format(date)
+                                ds.write(f"{mesaj}\n")
+        p1.record_content_vt()
+
+    def record_content_vt(self):
+        self.order += 1
+        hour, minute, day, year, month = time_setting("Hour"), time_setting("Hour")[3:5], time_setting(
+            "Day"), time_setting("Year"), time_setting("Month")
+        date = str(hour) + str(minute) + " " + str(day) + " " + str(year) + " " + str(month) + " "
+        with sql.connect('veribankam.sqlite') as vt:
+            im = vt.cursor()
+            im.execute("insert into {}_content values (?,?,?,?,?,?)".format(self.x),
+                       (self.order, self.x, date, self.new_list[0], self.new_list[1], self.new_list[2]))
+            vt.commit()
+
+        time.sleep(30)
+        p1.go_to_user()
+
+
+if __name__ == "__main__":
+    p1 = bot()
+    p1.select_user()
+© 2022 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
+Loading complete
